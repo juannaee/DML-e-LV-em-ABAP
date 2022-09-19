@@ -1,0 +1,102 @@
+REPORT zhr_controle_col16.
+
+*Campos da tabela.
+*ZZ_RE
+*ZZ_NOME_EMP
+*ZZ_CARGO
+*ZZ_STATUS_EMP
+*ZZ_DATA_CAD
+
+DATA: wa_001 TYPE zhr001_16.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+
+PARAMETERS: p_re     TYPE zhr001_16-zz_re OBLIGATORY MATCHCODE OBJECT zhp_re_16,
+            p_nome   TYPE zhr001_16-zz_nome_emp,
+            p_cargo  TYPE zhr001_16-zz_cargo,
+            p_status TYPE zhr001_16-zz_status_emp,
+            p_dtcad  TYPE zhr001_16-zz_data_cad.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+INITIALIZATION.
+
+AT SELECTION-SCREEN.
+
+  IF  p_re IS NOT INITIAL
+  AND p_re NE wa_001-zz_re.
+ 
+ wa_001-zz_re = p_re.
+
+
+    SELECT SINGLE
+                  zz_re
+                  zz_nome_emp
+                  zz_cargo
+                  zz_status_emp
+                  zz_data_cad
+     INTO (p_re,p_nome,p_cargo,p_status,p_dtcad)
+     FROM zhr001_16
+     WHERE zz_re EQ p_re.
+
+    IF sy-subrc IS NOT INITIAL.
+      CLEAR: p_nome,
+             p_cargo,
+             p_status,
+             p_dtcad.
+
+    ENDIF.
+
+  ENDIF.
+
+
+START-OF-SELECTION.
+
+CLEAR wa_001.
+  wa_001-zz_cargo      =  p_cargo.
+  wa_001-zz_data_cad   =  p_dtcad.
+  wa_001-zz_nome_emp   =  p_nome.
+  wa_001-zz_re         =  p_re.
+  wa_001-zz_status_emp =  p_status.
+
+  SELECT COUNT(*)
+    FROM zhr001_16 UP TO 1 ROWS
+    WHERE zz_re EQ p_re.
+    
+  IF  sy-dbcnt GT 0.
+    PERFORM f_update.
+    PERFORM f_commit.
+
+  ELSE.
+    PERFORM f_insert.
+    PERFORM f_commit.
+
+  ENDIF.
+
+FORM f_insert .
+  INSERT zhr001_16 FROM wa_001.
+ENDFORM.
+
+
+
+FORM f_update .
+  MODIFY zhr001_16 FROM wa_001.
+ENDFORM.
+
+
+
+FORM f_commit .
+  IF sy-subrc IS INITIAL.
+    
+    COMMIT WORK AND WAIT.
+    
+    MESSAGE s208(00) WITH 'Operação Concluida'.
+
+  ELSE.
+
+    ROLLBACK WORK.
+
+    MESSAGE s208(00) WITH 'Operação não Concluida' DISPLAY LIKE 'E'.
+
+  ENDIF.
+ENDFORM.

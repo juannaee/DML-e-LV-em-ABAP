@@ -1,0 +1,138 @@
+REPORT zhr_report_col16.
+
+*Campos da tabela.
+*ZZ_RE
+*ZZ_NOME_EMP
+*ZZ_CARGO
+*ZZ_STATUS_EMP
+*ZZ_DATA_CAD
+
+DATA:  v_re        TYPE  zhr001_16-zz_re,
+       v_nome      TYPE  zhr001_16-zz_nome_emp,
+       v_cargo     TYPE  zhr001_16-zz_cargo,
+       v_status    TYPE  zhr001_16-zz_status_emp,
+       v_datcad    TYPE  zhr001_16-zz_data_cad,
+
+       t_out       TYPE TABLE OF zhr001_16,
+
+       wa_out      LIKE LINE OF t_out,
+
+
+*ALV
+       t_fieldcat  TYPE slis_t_fieldcat_alv,
+       wa_fieldcat LIKE LINE OF t_fieldcat,
+       wa_layout   TYPE  slis_layout_alv.
+
+
+
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+
+SELECT-OPTIONS: s_re       FOR  v_re,
+                s_nome     FOR  v_nome,
+                s_cargo    FOR  v_cargo,
+                s_status   FOR  v_status,
+                s_datcad   FOR  v_datcad.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+START-OF-SELECTION.
+
+  PERFORM f_buscar_dados.
+  PERFORM f_exibir_alv.
+
+
+FORM f_buscar_dados.
+  FREE: t_out.
+
+  SELECT   mandt
+           zz_re
+           zz_nome_emp
+           zz_cargo
+           zz_status_emp
+           zz_data_cad
+
+    INTO TABLE t_out
+    FROM zhr001_16
+    WHERE
+              zz_re         IN s_re
+          AND zz_nome_emp   IN s_nome
+          AND zz_cargo      IN s_cargo
+          AND zz_status_emp IN s_status
+          AND zz_data_cad   IN s_datcad.
+
+  IF t_out[] IS INITIAL.
+    MESSAGE e208(00) WITH 'Nenhum registro encontrado' DISPLAY LIKE 'S'.
+  ENDIF.
+
+  DELETE t_out WHERE zz_nome_emp IS INITIAL.
+
+ENDFORM.
+
+DATA: lv_tabix TYPE sy-tabix.
+
+FORM f_exibir_alv.
+  CALL FUNCTION 'REUSE_ALV_FIELDCATALOG_MERGE'
+    EXPORTING
+      i_structure_name       = 'ZHR001_16'
+      i_client_never_display = abap_true
+    CHANGING
+      ct_fieldcat            = t_fieldcat
+    EXCEPTIONS
+      inconsistent_interface = 1
+      program_error          = 2
+      OTHERS                 = 3.
+
+
+  IF sy-subrc NE 0.
+    MESSAGE e208(00) WITH 'ERRO AO GERAR ALV'.
+  ENDIF.
+
+  LOOP AT t_fieldcat INTO wa_fieldcat.
+    lv_tabix = sy-tabix.
+    
+    CASE  wa_fieldcat-fieldname .
+      WHEN 'ZZ_RE' .
+        wa_fieldcat-hotspot = abap_true.
+        MODIFY t_fieldcat FROM wa_fieldcat INDEX lv_tabix.
+
+      WHEN 'ZZ_DATA_CAD'.
+        wa_fieldcat-no_out = abap_true.
+        MODIFY t_fieldcat FROM wa_fieldcat INDEX lv_tabix.
+     
+      WHEN OTHERS.
+
+    ENDCASE.
+
+  ENDLOOP.
+
+
+  wa_layout-colwidth_optimize = abap_true.
+  wa_layout-zebra = abap_true.
+
+
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+   
+   EXPORTING
+     
+      is_layout     = wa_layout     "Layout da lv
+      it_fieldcat   = t_fieldcat    "Aqui iremos construir nossa lv "manualmente" .
+      
+    TABLES
+      t_outtab      = t_out
+    EXCEPTIONS
+     program_error = 1
+      OTHERS        = 2.
+
+  IF sy-subrc IS NOT INITIAL.
+    MESSAGE e208(00) WITH 'ERRO AO GERAR ALV'.
+  ENDIF.
+
+
+
+
+
+
+ENDFORM.
+
